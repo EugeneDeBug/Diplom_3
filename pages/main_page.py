@@ -1,5 +1,5 @@
+import allure
 import time
-from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -9,16 +9,21 @@ from locators.ingredient_details_locators import IngredientDetailsLocators
 
 
 class MainPage(BasePage):
+
+    @allure.step("Проверка видимости конструктора")
     def is_constructor_visible(self):
         return self.wait_for_element_visible(MainPageLocators.CONSTRUCTOR_TITLE)
 
+    @allure.step("Клик по ингредиенту булки")
     def click_bun_ingredient(self):
         self.click_element(MainPageLocators.BUN_INGREDIENT)
 
+    @allure.step("Получение значения счётчика булки")
     def get_bun_counter(self):
         counter_elem = self.wait_for_element_visible(MainPageLocators.INGREDIENT_COUNTER)
         return int(counter_elem.text) if counter_elem.text else 0
 
+    @allure.step("Перетаскивание булки в конструктор")
     def drag_and_drop_bun_to_constructor(self):
         source = self.wait_for_element_visible(MainPageLocators.BUN_INGREDIENT)
         target = self.wait_for_element_visible(MainPageLocators.CONSTRUCTOR_DROP_ZONE)
@@ -37,8 +42,15 @@ class MainPage(BasePage):
         }
         simulateDragDrop(arguments[0], arguments[1]);
         """
-        self.driver.execute_script(script, source, target)
+        self.execute_script(script, source, target)
 
+    @allure.step("Ожидание, что счётчик булки станет равным {expected_count}")
+    def wait_for_bun_counter_equal_to(self, expected_count, timeout=10):
+        def condition(driver):
+            return self.get_bun_counter() == expected_count
+        self.wait_for_condition(condition, timeout, message=f"Счётчик булки не стал равен {expected_count}")
+
+    @allure.step("Проверка, открыто ли модальное окно ингредиента")
     def is_ingredient_modal_opened(self):
         try:
             self.wait_for_element_visible(IngredientDetailsLocators.MODAL_TITLE, timeout=5)
@@ -46,56 +58,42 @@ class MainPage(BasePage):
         except:
             return False
 
+    @allure.step("Закрытие модального окна ингредиента")
     def close_ingredient_modal(self):
         self.click_element(IngredientDetailsLocators.CLOSE_BUTTON)
-        WebDriverWait(self.driver, 5).until(
-            EC.invisibility_of_element_located(IngredientDetailsLocators.MODAL_TITLE)
-        )
+        self.wait_for_condition(lambda d: not self.is_ingredient_modal_opened(), timeout=5)
 
+    @allure.step("Ожидание закрытия модального окна ингредиента")
+    def wait_for_ingredient_modal_closed(self, timeout=5):
+        self.wait_for_condition(lambda d: not self.is_ingredient_modal_opened(), timeout=timeout)
+
+    @allure.step("Получение названия ингредиента из модального окна")
     def get_ingredient_name_from_modal(self):
         return self.get_text(IngredientDetailsLocators.INGREDIENT_NAME)
 
+    @allure.step("Нажатие на кнопку 'Оформить заказ'")
     def click_order_button(self):
-        WebDriverWait(self.driver, 15).until(
-            lambda d: d.find_element(*MainPageLocators.ORDER_BUTTON).get_attribute("disabled") is None
+        self.wait_for_condition(
+            lambda d: d.find_element(*MainPageLocators.ORDER_BUTTON).get_attribute("disabled") is None,
+            timeout=15
         )
         self.click_element(MainPageLocators.ORDER_BUTTON)
-        time.sleep(5)
+        time.sleep(5)   # пауза для появления модального окна
 
+    @allure.step("Получение номера заказа из модального окна подтверждения")
     def get_order_number_from_confirmation(self):
-        primary_locator = (By.XPATH,
-                           "//h2[contains(@class, 'Modal_modal__title__2L34m') and contains(@class, 'text_type_digits-large')]")
-        try:
-            WebDriverWait(self.driver, 15).until(
-                EC.visibility_of_element_located(primary_locator)
-            )
-            order_number = self.driver.find_element(*primary_locator).text.strip()
-            if order_number and order_number.isdigit():
-                return order_number
-        except:
-            pass
+        element = self.wait_for_element_visible(MainPageLocators.ORDER_NUMBER_IN_MODAL, timeout=15)
+        return element.text.strip()
 
-        fallback_locator = (By.XPATH,
-                            "//div[contains(@class, 'Modal_modal')]//*[contains(@class, 'text_type_digits-large')]")
-        WebDriverWait(self.driver, 15).until(
-            EC.visibility_of_element_located(fallback_locator)
-        )
-        order_number = self.driver.find_element(*fallback_locator).text.strip()
-        return order_number
-
+    @allure.step("Закрытие модального окна подтверждения заказа кликом по крестику через JS")
     def close_order_confirmation_modal(self):
-        self.click_element(IngredientDetailsLocators.CLOSE_BUTTON)
-        WebDriverWait(self.driver, 5).until(
-            EC.invisibility_of_element_located((By.XPATH, "//div[contains(@class, 'Modal_modal')]"))
+        self.click_element_by_js(IngredientDetailsLocators.CLOSE_BUTTON)
+        self.wait_for_condition(
+            lambda d: not self.is_ingredient_modal_opened(),
+            timeout=5
         )
 
-    def is_bun_counter_equal_to(self, expected_count):
-        return self.get_bun_counter() == expected_count
-
+    @allure.step("Получение текста заголовка конструктора")
+    def get_constructor_title_text(self):
+        return self.get_text(MainPageLocators.CONSTRUCTOR_TITLE)
     
-    def wait_for_bun_counter_equal_to(self, expected_count, timeout=10):
-        WebDriverWait(self.driver, timeout).until(
-        lambda d: self.get_bun_counter() == expected_count,
-        message=f"Счётчик булки не стал равен {expected_count}"
-    )
-        

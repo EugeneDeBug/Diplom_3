@@ -1,5 +1,4 @@
 import allure
-from selenium.webdriver.support.ui import WebDriverWait
 from pages.main_page import MainPage
 
 @allure.feature("Модальное окно ингредиента")
@@ -19,8 +18,6 @@ class TestIngredientModal:
         main_page.click_bun_ingredient()
         assert main_page.is_ingredient_modal_opened()
         main_page.close_ingredient_modal()
-        WebDriverWait(driver, 5).until_not(
-            lambda d: main_page.is_ingredient_modal_opened()
-        )
+        main_page.wait_for_ingredient_modal_closed()
         assert not main_page.is_ingredient_modal_opened()
         

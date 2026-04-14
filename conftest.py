@@ -32,7 +32,8 @@ def authorized_user(driver):
     """
     user_data = generate_user_data()
     resp = register_user(user_data)
-    assert resp.status_code == 200, "Не удалось создать пользователя"
+    if resp.status_code != 200:
+        pytest.fail(f"Не удалось создать пользователя. Статус: {resp.status_code}, тело: {resp.text}")
     token = resp.json().get("accessToken")
     yield {
         "email": user_data["email"],
@@ -42,3 +43,4 @@ def authorized_user(driver):
     }
     if token:
         delete_user(token)
+        
